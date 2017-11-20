@@ -2,32 +2,38 @@
 #include "device_launch_parameters.h"
 #include <stdio.h>
 #include "String.h"
+#define N 10
 
-__global__ void add(int a, int b, int * c)
+__global__ void add(int *a, int *b, int * c)
 {
-	*c = a + b;
+	int tid = blockIdx.x;
+	if(tid < N)
+		c[tid] = a[tid] + b[tid];
 }
 int main()
 {
-	int c;
-	int *dev_c = NULL;
-	cudaError_t cudaStatus;
-	cudaStatus = cudaMalloc((void**)&dev_c, sizeof(int));
-	if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        return -1;
-    }
-	add<<<1, 1>>>(2, 7, dev_c);
-	cudaStatus = cudaMemcpy(&c, dev_c, sizeof(int), cudaMemcpyDeviceToHost);
-	if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        return -1;
-    }
-	if(dev_c != NULL)
+	int a[N], b[N], c[N];
+	int *dev_a, *dev_b, *dev_c;
+	cudaMalloc((void**)&dev_a, N*sizeof(int));
+	cudaMalloc((void**)&dev_b, N*sizeof(int));
+	cudaMalloc((void**)&dev_c, N*sizeof(int));
+	for(int i = 0; i < N; ++i)
 	{
-		//printf("2 + 7 = %d\n", *dev_c);
-		printf("2 + 7 = %d\n", c);
+		a[i] = -i;
+		b[i] = i*i;
 	}
+	cudaMemcpy(dev_a, a, N*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_b, b, N*sizeof(int), cudaMemcpyHostToDevice);
+	cudaMemcpy(dev_c, c, N*sizeof(int), cudaMemcpyHostToDevice);
+	//N:表示设备在执行核函数时使用的并行线程块的数量，
+	add<<<N, 1>>>(dev_a, dev_b, dev_c);
+	cudaMemcpy(c, dev_c, N*sizeof(int), cudaMemcpyDeviceToHost);
+	for(int i = 0; i < N; ++i)
+	{
+		printf("%d + %d = %d\n", a[i], b[i], c[i]);
+	}
+	cudaFree(dev_a);
+	cudaFree(dev_b);
 	cudaFree(dev_c);
 	//Second Demo
 #if 0
